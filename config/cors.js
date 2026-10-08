@@ -1,6 +1,14 @@
+// const corsOptions = {
+//   origin: process.env.FRONTEND_URL,
+//   credentials: true,
+// };
+
+// module.exports = corsOptions;
+
+
 const corsOptions = {
-  origin: process.env.FRONTEND_URL,
-  credentials: true,
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
 };
 
 module.exports = corsOptions;
