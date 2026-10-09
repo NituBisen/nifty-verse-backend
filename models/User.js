@@ -55,9 +55,36 @@ const userSchema = new mongoose.Schema(
             minlength: 6,
         },
 
+        role: {
+            type: String,
+            enum: ["user", "admin"],
+            default: "user",
+        },
+
         lastLoginAt: {
             type: Date,
             default: null,
+        },
+
+        // Password Reset OTP Fields
+        passwordResetOtpHash: {
+            type: String,
+            default: null,
+        },
+
+        passwordResetOtpExpiresAt: {
+            type: Date,
+            default: null,
+        },
+
+        passwordResetOtpVerified: {
+            type: Boolean,
+            default: false,
+        },
+
+        passwordResetOtpAttempts: {
+            type: Number,
+            default: 0,
         },
     },
     {
