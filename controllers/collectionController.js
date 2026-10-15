@@ -391,7 +391,7 @@ const imageIsValid = (value) =>
     /^data:image\/(png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(value));
 
 // Populate NFT references and include the fields needed by collection cards.
-const getNFTPopulateOptions = (publicOnly = false) => ({
+const getNFTPopulateOptions = (publicOnly = false, previewOnly = false) => ({
   path: "nfts",
   ...(publicOnly
     ? {
@@ -403,6 +403,7 @@ const getNFTPopulateOptions = (publicOnly = false) => ({
     : {}),
   select:
     "name image creator price highestBid category status isListed createdAt createdBy collectionRef",
+  ...(previewOnly ? { perDocumentLimit: 2 } : {}),
   populate: {
     path: "createdBy",
     select: "username profileImage",
@@ -494,17 +495,46 @@ const serializeCollection = (doc) => {
 
 const getPublicCollections = async (req, res) => {
   try {
+    const requestedLimit = Number.parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 100)
+      : 100;
+
     const collections = await Collection.find({
       status: "published",
     })
       .sort({ createdAt: -1 })
-      .limit(100)
+      .limit(limit)
       .populate("createdBy", "username profileImage")
-      .populate(getNFTPopulateOptions(true));
+      .populate(
+        getNFTPopulateOptions(true, req.query.summary === "landing")
+      );
+
+    const serializedCollections = collections.map(serializeCollection);
+
+    if (req.query.summary === "landing") {
+      return res.json({
+        success: true,
+        collections: serializedCollections.map(
+          ({ _id, id, name, category, description, artist, artistAvatar, primaryImage, secondaryImages, nftCount }) => ({
+            _id,
+            id,
+            name,
+            category,
+            description,
+            artist,
+            artistAvatar,
+            primaryImage,
+            secondaryImages,
+            nftCount,
+          })
+        ),
+      });
+    }
 
     return res.json({
       success: true,
-      collections: collections.map(serializeCollection),
+      collections: serializedCollections,
     });
   } catch (error) {
     console.error("Get public collections error:", error);

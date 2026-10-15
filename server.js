@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
-
+module.exports = cors({ origin: "http://localhost:5173" });
 dotenv.config();
 
 const connectDB = require("./config/db");
@@ -16,6 +16,7 @@ const profileRoutes = require("./routes/profileRoutes");
 const favoriteRoutes = require("./routes/favoriteRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const activityRoutes = require("./routes/activityRoutes");
+const categoryRoutes = require("./routes/categoryRoutes");
 
 const app = express();
 
@@ -57,6 +58,9 @@ app.use("/api/profile", profileRoutes);
 app.use("/api/favorites", favoriteRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/activity", activityRoutes);
+app.use("/api/admin", adminUserRoutes);
+app.use("/api/categories", categoryRoutes);
+
 
 const PORT =
     process.env.PORT || 5000;

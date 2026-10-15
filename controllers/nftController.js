@@ -70,18 +70,85 @@ const populateNFT = (query) =>
 
 const getPublicNFTs = async (req, res) => {
   try {
-    const nfts = await populateNFT(
-      NFT.find({
-        status: "published",
-        isListed: true,
-      })
-        .sort({ createdAt: -1 })
-        .limit(100)
-    );
+    const requestedLimit = Number.parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 100)
+      : 100;
+
+    const nftQuery =
+      req.query.includeNfts === "false"
+        ? Promise.resolve([])
+        : populateNFT(
+            NFT.find({
+              status: "published",
+              isListed: true,
+            })
+              .sort({ createdAt: -1 })
+              .limit(limit)
+          );
+
+    const creatorMatch = { status: "published", isListed: true };
+    const period = String(req.query.period || "all").toLowerCase();
+    const periodStart = new Date();
+
+    if (period === "today") {
+      periodStart.setUTCHours(0, 0, 0, 0);
+    } else if (period === "week") {
+      periodStart.setUTCHours(0, 0, 0, 0);
+      periodStart.setUTCDate(
+        periodStart.getUTCDate() - ((periodStart.getUTCDay() + 6) % 7)
+      );
+    } else if (period === "month") {
+      periodStart.setUTCDate(1);
+      periodStart.setUTCHours(0, 0, 0, 0);
+    } else {
+      periodStart.setTime(0);
+    }
+
+    if (["today", "week", "month"].includes(period)) {
+      creatorMatch.createdAt = { $gte: periodStart };
+    }
+
+    const creatorsQuery =
+      req.query.includeCreators === "true"
+        ? NFT.aggregate([
+            { $match: creatorMatch },
+            {
+              $group: {
+                _id: "$createdBy",
+                nftCount: { $sum: 1 },
+                listedValue: { $sum: { $ifNull: ["$price", 0] } },
+              },
+            },
+            { $sort: { nftCount: -1, listedValue: -1, _id: 1 } },
+            ...(req.query.creatorLimit === "all" ? [] : [{ $limit: 12 }]),
+            {
+              $lookup: {
+                from: User.collection.name,
+                localField: "_id",
+                foreignField: "_id",
+                as: "profile",
+              },
+            },
+            { $unwind: "$profile" },
+            {
+              $project: {
+                _id: { $toString: "$_id" },
+                username: "$profile.username",
+                profileImage: { $ifNull: ["$profile.profileImage", ""] },
+                nftCount: 1,
+                listedValue: 1,
+              },
+            },
+          ])
+        : Promise.resolve(null);
+
+    const [nfts, creators] = await Promise.all([nftQuery, creatorsQuery]);
 
     return res.json({
       success: true,
       nfts: nfts.map(serializeNFT),
+      ...(creators ? { creators } : {}),
     });
   } catch (error) {
     console.error("Get public NFTs error:", error);
